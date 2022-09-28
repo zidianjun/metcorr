@@ -15,6 +15,7 @@ corr_func(x, y, metallicity)
 help(deproject)
 
 deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
+
     """
     Deproject the galaxy coordinates using rotation matrix.
     Parameters:
