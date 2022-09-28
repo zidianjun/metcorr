@@ -15,6 +15,7 @@ def deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
 """
 
 Deproject the galaxy coordinates using rotation matrix.
+
 Parameters:
 
     image: 2D array
@@ -31,7 +32,9 @@ Parameters:
         q0 = 0 means that the disk is infinitely thin.
         
 returns:
+
     A tuple of (X, Y)
+    
 """
 
 
