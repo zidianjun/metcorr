@@ -9,6 +9,7 @@ corr_func(x, y, metallicity)
 
 def corr_func(x, y, met,
               bin_size=.2, max_sep=5., report=False, adp=False):
+              
     """
     Parameters:
         x, y, and met: 1D array.
