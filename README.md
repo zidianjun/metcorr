@@ -17,17 +17,13 @@ Deproject the galaxy coordinates using rotation matrix.
 Parameters:
     image: 2D array
         In general the original metallicity map from an IFU.
-
     cen_coord: 2-element tuple
         The coordinates of the galaxy center, shaped as (center_x, center_y)
-
     PA: float (in unit of degree)
         The position angle. PA = 0 means that the semi long axis is aligned to x axis.
-
     q0: float
         A factor related with the intrinsic galaxy disk thickness.
         q0 = 0 means that the disk is infinitely thin.
-
 returns:
     A tuple of (X, Y)
 """
