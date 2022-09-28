@@ -10,14 +10,10 @@ Demo code:
 
 Note that corr_func() is designed for read-world scales. Thus, the parameters x and y should be converted to kpc from pixel coordinates.
 
-    def deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
-
+    deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
     """
-
     Deproject the galaxy coordinates using rotation matrix.
-
     Parameters:
-
         image: 2D array
             In general the original metallicity map from an IFU.
 
@@ -30,16 +26,13 @@ Note that corr_func() is designed for read-world scales. Thus, the parameters x 
         q0: float
             A factor related with the intrinsic galaxy disk thickness.
             q0 = 0 means that the disk is infinitely thin.
-
+    
     returns:
-
         A tuple of (X, Y)
-
     """
 
 
-    def corr_func(x_arr, y_arr, met_arr, bin_size=.2, max_sep=5., report=False, adp=False):
-
+    corr_func(x_arr, y_arr, met_arr, bin_size=.2, max_sep=5., report=False, adp=False):
     """
     Compute the two-point correlation function of a deprojected galaxy.
     Parameters:
