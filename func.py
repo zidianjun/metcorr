@@ -21,10 +21,8 @@ def _bin_array(r, f, bin_size=.1, adp=False): # phase=0
 def _step(rad, met, bin_rad, bin_met):
     rad_matrix = abs(np.subtract.outer(rad, bin_rad))
     min_value = np.expand_dims(np.min(rad_matrix, axis=1), axis=1)
-
     # np.where will return ALL the min values!
     x, y = np.where(rad_matrix == min_value)
-
     # If having recurring items, remove them.
     y = y[np.insert(np.diff(x) != 0, 0, True)]
     step_func = bin_met[y]
@@ -59,12 +57,53 @@ def _tpcf(f, x, y, report=False, bin_size=.2, max_sep=5.):
         bin_s = (bin_scorr - mean2) / sigma2
     return bin_d, bin_s
 
-def corr_func(x, y, met,
+def _b2a_to_cosi(b2a, q0=0.):
+    return np.sqrt((b2a ** 2 - q0 ** 2) / (1 - q0 ** 2)) if b2a > q0 else 0.
+
+
+
+def deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
+    """
+    Deproject the galaxy coordinates using rotation matrix.
+    Parameters:
+        image: 2D array
+            In general the original metallicity map from an IFU.
+
+        cen_coord: 2-element tuple
+            The coordinates of the galaxy center, shaped as (center_x, center_y)
+
+        PA: float (in unit of degree)
+            The position angle. PA = 0 means that the semi long axis is aligned to x axis.
+
+        q0: float
+            A factor related with the intrinsic galaxy disk thickness.
+            q0 = 0 means that the disk is infinitely thin.
+    
+    returns:
+        A tuple of (X, Y)
+    """
+    height, width = image.shape
+    cx, cy = cen_coord
+    cosi = _b2a_to_cosi(b2a, q0=q0)
+    theta = PA * np.pi / 180
+    dep_mat = np.array([[np.cos(theta), np.sin(theta)],
+                        [-np.sin(theta) / cosi, np.cos(theta) / cosi]])
+   
+    x0, y0 = np.meshgrid(range(width), range(height))
+    x0, y0 = x0.reshape(-1), y0.reshape(-1)
+    xy_mat = np.stack([x0 - cx, y0 - cy], axis=0)
+    X, Y = np.dot(dep_mat, xy_mat)
+    return (X, Y)
+
+
+def corr_func(x_arr, y_arr, met_arr,
               bin_size=.2, max_sep=5., report=False, adp=False):
     """
+    Compute the two-point correlation function of a deprojected galaxy.
     Parameters:
-        x, y, and met: 1D array.
+        x, y, and met: 1D or 2D array
             x and y are the coordinates and met is the metallicities.
+            Their sizes must be the same.
 
         bin_size: float (in unit of kpc)
             It could be as small as the physical spatial resolution.
@@ -89,8 +128,13 @@ def corr_func(x, y, met,
         ksi is the two-point correlation, as
             [1, 0.X, 0.Y, ...].
     """
+    if x_arr.size != y_arr.size or y_arr.size != met_arr.size:
+        raise ValueError("The sizes of the three arrays must be equal!")
+    x, y, met = x_arr.reshape(-1), y_arr.reshape(-1), met_arr.reshape(-1)
     rad = np.sqrt(x ** 2 + y ** 2)
     bin_rad, bin_met = _bin_array(rad, met, bin_size=bin_size, adp=False)
     met_fluc = _step(rad, met, bin_rad, bin_met)
     sep, ksi = _tpcf(met_fluc, x, y, report=report, bin_size=bin_size, max_sep=max_sep)
     return sep[sep < max_sep], ksi[sep < max_sep]
+
+

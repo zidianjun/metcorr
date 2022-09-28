@@ -1,3 +1,3 @@
 
 
-from metcorr.func import corr_func
+from metcorr.func import corr_func, deproject
