@@ -1,5 +1,5 @@
 # metcorr
-metallicity two-point correlation
+Metallicity two-point correlation of galaxies. Deprojection code can also be found here.
 
 Demo code:
 
