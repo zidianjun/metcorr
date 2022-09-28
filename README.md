@@ -22,7 +22,6 @@ def corr_func(x, y, met,
         report: bool, optional
             If True, then print the procedures and
             how long the two-point correlation function takes.
-        
         adp: bool, optional
             If True, then removing the radial metallicity gradient will be
             processed in adaptive bins.
