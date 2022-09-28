@@ -8,8 +8,10 @@ Demo code:
     x, y = X * pixel_size, Y * pixel_size
     corr_func(x, y, metallicity, bin_size=pixel_size)
 
+Note that corr_func() is designed for read-world scales. Thus, the parameters x and y should be converted to kpc from pixel coordinates.
 
 def deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
+
 """
 Deproject the galaxy coordinates using rotation matrix.
 Parameters:
@@ -32,6 +34,7 @@ returns:
 
 
 def corr_func(x_arr, y_arr, met_arr, bin_size=.2, max_sep=5., report=False, adp=False):
+
 """
 Compute the two-point correlation function of a deprojected galaxy.
 Parameters:
