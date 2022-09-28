@@ -2,13 +2,43 @@
 metallicity two-point correlation
 
 
-from metcorr import corr_func
+from metcorr import deproject, corr_func
+
+X, Y = deproject(met_map, cen_coord, PA, b2a)
+
+x, y = X * pixel_size, Y * pixel_size
 
 corr_func(x, y, metallicity)
 
 
-def corr_func(x, y, met,
-              bin_size=.2, max_sep=5., report=False, adp=False):
+
+help(deproject)
+
+deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
+    """
+    Deproject the galaxy coordinates using rotation matrix.
+    Parameters:
+        image: 2D array
+            In general the original metallicity map from an IFU.
+
+        cen_coord: 2-element tuple
+            The coordinates of the galaxy center, shaped as (center_x, center_y)
+
+        PA: float (in unit of degree)
+            The position angle. PA = 0 means that the semi long axis is aligned to x axis.
+
+        q0: float
+            A factor related with the intrinsic galaxy disk thickness.
+            q0 = 0 means that the disk is infinitely thin.
+    
+    returns:
+        A tuple of (X, Y)
+    """
+
+
+help(corr_func)
+
+corr_func(x, y, met, bin_size=.2, max_sep=5., report=False, adp=False):
               
     """
     Parameters:
