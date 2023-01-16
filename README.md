@@ -1,6 +1,6 @@
 # metcorr
 
-Metallicity two-point correlation of galaxies (please cite Li et al. [2023]([https://ui.adsabs.harvard.edu/abs/2023MNRAS.518..286L/abstract])). Deprojection code can also be found here.
+Metallicity two-point correlation of galaxies (please cite Li et al. [2023](https://ui.adsabs.harvard.edu/abs/2023MNRAS.518..286L/abstract)). [I'm an inline-style link](https://www.google.com) Deprojection code can also be found here.
 
 Demo code:
 
