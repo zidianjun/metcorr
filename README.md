@@ -11,18 +11,19 @@ Demo code:
 
 Note that corr_func() is designed for read-world scales. Thus, the parameters x and y should be converted to kpc from pixel coordinates.
 
-    deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
+    deproject(shape, cen_coord=(0, 0), PA=0., incl=0., q0=0.):
     """
     Deproject the galaxy coordinates using rotation matrix.
     Parameters:
-        image: 2D array
-            In general the original metallicity map from an IFU.
+        shape: tuple
+            The shape of the original metallicity map from an IFU.
 
         cen_coord: 2-element tuple
             The coordinates of the galaxy center, shaped as (center_x, center_y)
 
         PA: float (in unit of degree)
-            The position angle. PA = 0 means that the semi long axis is aligned to x axis.
+            The position angle. PA = 0 means that the semi long axis is
+            aligned to x axis.
 
         q0: float
             A factor related with the intrinsic galaxy disk thickness.
