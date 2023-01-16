@@ -45,35 +45,37 @@ def _bin_stat(f, x, y, report=False, bin_size=.2, max_sep=5.):
         print("\nTwo point correlation consumes %.2fs.\n" %(t2 - t1))
     py_res = cast(c_res, POINTER(c_float * (length * 2))).contents
     res = np.array(list(py_res), dtype=float).reshape(2, -1)
-    return res[0], res[1]
+    return res[1]
 
 def _tpcf(f, x, y, report=False, bin_size=.2, max_sep=5.):
     mean2, sigma2 = np.mean(f) ** 2, np.std(f) ** 2  # mean is 0
-    bin_ind, bin_scorr = _bin_stat(f, x, y,
-                                   report=report, bin_size=bin_size, max_sep=max_sep)
+    bin_scorr = _bin_stat(f, x, y,
+                          report=report, bin_size=bin_size, max_sep=max_sep)
     bin_d = np.arange(0, max_sep + bin_size, bin_size)[:len(bin_scorr)]
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', category=RuntimeWarning)
         bin_s = (bin_scorr - mean2) / sigma2
     return bin_d, bin_s
 
-def _b2a_to_cosi(b2a, q0=0.):
-    return np.sqrt((b2a ** 2 - q0 ** 2) / (1 - q0 ** 2)) if b2a > q0 else 0.
+def _incl_to_cosi(incl, q0=0.):
+    cos = np.cos(incl * np.pi / 180)
+    return np.sqrt((cos ** 2 - q0 ** 2) / (1 - q0 ** 2)) if cos > q0 else 0.
 
 
 
-def deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
+def deproject(shape, cen_coord=(0, 0), PA=0., incl=0., q0=0.):
     """
     Deproject the galaxy coordinates using rotation matrix.
     Parameters:
-        image: 2D array
-            In general the original metallicity map from an IFU.
+        shape: tuple
+            The shape of the original metallicity map from an IFU.
 
         cen_coord: 2-element tuple
             The coordinates of the galaxy center, shaped as (center_x, center_y)
 
         PA: float (in unit of degree)
-            The position angle. PA = 0 means that the semi long axis is aligned to x axis.
+            The position angle. PA = 0 means that the semi long axis is
+            aligned to x axis.
 
         q0: float
             A factor related with the intrinsic galaxy disk thickness.
@@ -82,9 +84,9 @@ def deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
     returns:
         A tuple of (X, Y)
     """
-    height, width = image.shape
+    height, width = shape
     cx, cy = cen_coord
-    cosi = _b2a_to_cosi(b2a, q0=q0)
+    cosi = _incl_to_cosi(incl, q0=q0)
     theta = PA * np.pi / 180
     dep_mat = np.array([[np.cos(theta), np.sin(theta)],
                         [-np.sin(theta) / cosi, np.cos(theta) / cosi]])
@@ -93,7 +95,7 @@ def deproject(image, cen_coord=(0, 0), PA=0., b2a=1., q0=0.):
     x0, y0 = x0.reshape(-1), y0.reshape(-1)
     xy_mat = np.stack([x0 - cx, y0 - cy], axis=0)
     X, Y = np.dot(dep_mat, xy_mat)
-    return (X, Y)
+    return X, Y
 
 
 def corr_func(x_arr, y_arr, met_arr,
@@ -131,10 +133,13 @@ def corr_func(x_arr, y_arr, met_arr,
     if x_arr.size != y_arr.size or y_arr.size != met_arr.size:
         raise ValueError("The sizes of the three arrays must be equal!")
     x, y, met = x_arr.reshape(-1), y_arr.reshape(-1), met_arr.reshape(-1)
+    good = ~np.isnan(x) & ~np.isnan(y) & ~np.isnan(met)
+    x, y, met = x[good], y[good], met[good]
     rad = np.sqrt(x ** 2 + y ** 2)
-    bin_rad, bin_met = _bin_array(rad, met, bin_size=bin_size, adp=False)
+    bin_rad, bin_met = _bin_array(rad, met, bin_size=bin_size, adp=adp)
     met_fluc = _step(rad, met, bin_rad, bin_met)
-    sep, ksi = _tpcf(met_fluc, x, y, report=report, bin_size=bin_size, max_sep=max_sep)
+    sep, ksi = _tpcf(met_fluc, x, y,
+                     report=report, bin_size=bin_size, max_sep=max_sep)
     return sep[sep < max_sep], ksi[sep < max_sep]
 
 
