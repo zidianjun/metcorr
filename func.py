@@ -2,17 +2,18 @@
 from ctypes import *
 import numpy as np
 from scipy.stats import binned_statistic
-import time
 import os
-import warnings
 import platform
+import matplotlib.pyplot as plt
 
-def _bin_array(r, f, bin_size=.1, adp=False): # phase=0
-    if adp:
-        hist, bin_edge = np.histogram(r, bins='auto')
-    else:
-        bin_edge = np.arange(min(r), max(r) + bin_size, bin_size)
-    stat = binned_statistic(r, f, bins=bin_edge)
+suffix = 'linux' if platform.platform().split('-')[0] == 'Linux' else 'macos'
+abs_path = os.path.dirname(os.path.abspath(__file__))
+lib = CDLL(abs_path + '/lib_' + suffix + '.so')
+
+
+
+def _bin_array(r, f, bins): # phase=0
+    stat = binned_statistic(r, f, bins=bins)
     mask = ~np.isnan(stat.statistic)
     bin_r = stat.bin_edges[:-1][mask]
     bin_f = stat.statistic[mask]
@@ -29,33 +30,49 @@ def _step(rad, met, bin_rad, bin_met):
     fluc = met - step_func
     return fluc
 
-def _bin_stat(f, x, y, report=False, bin_size=.2, max_sep=5.):
-    suffix = 'linux' if platform.platform().split('-')[0] == 'Linux' else 'macos'
-    abs_path = os.path.dirname(os.path.abspath(__file__))
-    lib = CDLL(abs_path + '/lib_' + suffix + '.so')
+def _bin_stat(f, x, y, min_sep, max_sep, bin_size, report=False):
     three_arrays = np.concatenate([f, x, y], axis=0)
-    lib.group_by.argtypes = (POINTER(c_float), c_int, c_int, c_int, c_float, c_float)
+    lib.group_by.argtypes = [POINTER(c_float)] + [c_int] * 3 + [c_float] * 3
     lib.group_by.restype = POINTER(c_float)
     c_array = np.ctypeslib.as_ctypes(three_arrays.astype(np.float32))
-    length = int(max_sep / bin_size) + 1
-    t1 = time.time()
-    c_res = lib.group_by(c_array, len(f), length, int(report), bin_size, max_sep)
-    t2 = time.time()
-    if report:
-        print("\nTwo point correlation consumes %.2fs.\n" %(t2 - t1))
+    length = int((max_sep - min_sep) / bin_size)
+    c_res = lib.group_by(c_array, len(f), length, int(report),
+                         min_sep, max_sep, bin_size)
     py_res = cast(c_res, POINTER(c_float * (length * 2))).contents
     res = np.array(list(py_res), dtype=float).reshape(2, -1)
     return res[1]
 
-def _tpcf(f, x, y, report=False, bin_size=.2, max_sep=5.):
+def _whole_stat(f, x, y, min_sep, max_sep, bin_size, min_pa, max_pa, azi_size,
+                report=False):
+    three_arrays = np.concatenate([f, x, y], axis=0)
+    lib.group.argtypes = [POINTER(c_float)] + [c_int] * 4 + [c_float] * 6
+    lib.group.restype = POINTER(c_float)
+    c_array = np.ctypeslib.as_ctypes(three_arrays.astype(np.float32))
+    len1 = int((max_sep - min_sep) / bin_size)
+    len2 = int((max_pa - min_pa) / azi_size)
+    c_res = lib.group(c_array, len(f), len1, len2, int(report),
+                      min_sep, max_sep, bin_size, min_pa, max_pa, azi_size)
+    py_res = cast(c_res, POINTER(c_float * (len1 * len2 * 2))).contents
+    res = np.array(list(py_res), dtype=float).reshape(2, -1)
+    return res[1].reshape((len2, len1))
+
+def _tpcf(f, x, y, rad_bin, azi_bin=None, report=False):
     mean2, sigma2 = np.mean(f) ** 2, np.std(f) ** 2  # mean is 0
-    bin_scorr = _bin_stat(f, x, y,
-                          report=report, bin_size=bin_size, max_sep=max_sep)
-    bin_d = np.arange(0, max_sep + bin_size, bin_size)[:len(bin_scorr)]
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', category=RuntimeWarning)
-        bin_s = (bin_scorr - mean2) / sigma2
-    return bin_d, bin_s
+    min_sep, max_sep, bin_size = rad_bin
+    max_sep = np.arange(*rad_bin)[-1] + bin_size
+    if azi_bin is None:
+        bin_scorr = _bin_stat(f, x, y, report=report,
+                              min_sep=min_sep, max_sep=max_sep, bin_size=bin_size)
+        return (bin_scorr - mean2) / sigma2
+    else:
+        min_pa, max_pa, azi_size = azi_bin
+        max_pa = np.arange(*azi_bin)[-1] + azi_size
+        bin_scorr = _whole_stat(f, x, y, report=report,
+                                min_sep=min_sep, max_sep=max_sep, bin_size=bin_size,
+                                min_pa=min_pa, max_pa=max_pa, azi_size=azi_size)
+        res = (bin_scorr - mean2) / sigma2
+        res[:, 0] = 1.
+        return res
 
 def _incl_to_cosi(incl, q0=0.):
     cos = np.cos(incl * np.pi / 180)
@@ -63,7 +80,43 @@ def _incl_to_cosi(incl, q0=0.):
 
 
 
-def deproject(shape, cen_coord=(0, 0), PA=0., incl=0., q0=0.):
+
+def inv_where(val_arr, bool_arr, padding=np.nan):
+    """
+    Recover the val_arr 
+    Inverse function of np.where().
+    Calculate x = np.where(bool_arr, val_arr, padding),
+        when val_arr and bool_arr are known.
+    Parameters:
+        val_arr: 1D np.array
+            The array that has valid values.
+
+        bool_arr: 1D np.array
+            The array that has boolean values showing where
+                val_arr is valid
+
+        padding: float.
+            The value to be padded into the places where
+                bool_arr is False
+            Defalted to be np.nan.
+    
+    returns:
+        1D np.array
+        Padding val_arr using padding following the indication of bool_arr.
+    """
+    if int(np.sum(bool_arr)) != len(val_arr):
+        raise ValueError("The number of 'True' in bool_arr should be equal to" +
+                         "the length of val_arr!")
+    res = np.ones(len(bool_arr)) * padding
+    flag = 0
+    for i in range(len(bool_arr)):
+        if bool_arr[i]:
+            res[i] = val_arr[flag]
+            flag += 1
+    return res
+
+
+def deproject(shape, cen_coord, PA, incl, q0=0.):
     """
     Deproject the galaxy coordinates using rotation matrix.
     Parameters:
@@ -75,11 +128,11 @@ def deproject(shape, cen_coord=(0, 0), PA=0., incl=0., q0=0.):
 
         PA: float (in unit of degree)
             The position angle. PA = 0 means that the semi long axis is
-            aligned to x axis.
+                aligned to the north.
 
         q0: float
             A factor related with the intrinsic galaxy disk thickness.
-            q0 = 0 means that the disk is infinitely thin.
+            Defaulted to be 0, meaning that the disk is infinitely thin.
     
     returns:
         A tuple of (X, Y)
@@ -87,7 +140,7 @@ def deproject(shape, cen_coord=(0, 0), PA=0., incl=0., q0=0.):
     height, width = shape
     cx, cy = cen_coord
     cosi = _incl_to_cosi(incl, q0=q0)
-    theta = PA * np.pi / 180
+    theta = (PA + 90) * np.pi / 180  # Aligned to x axis
     dep_mat = np.array([[np.cos(theta), np.sin(theta)],
                         [-np.sin(theta) / cosi, np.cos(theta) / cosi]])
    
@@ -98,48 +151,71 @@ def deproject(shape, cen_coord=(0, 0), PA=0., incl=0., q0=0.):
     return X, Y
 
 
-def corr_func(x_arr, y_arr, met_arr,
-              bin_size=.2, max_sep=5., report=False, adp=False):
+def fluc_map(x, y, z, bins):
+    """
+    Compute the (metallicity) fluctuation map after removing the radial profile.
+    Parameters:
+        x, y, and z: 1D np.array
+            x and y are the coordinates and z is the map (generally metallicities).
+            Their sizes must be identical.
+
+        bins: 1D np.array
+            Radial bins
+    
+    returns:
+        A 1D np.array containing fluctuations with the same size as z has.
+    """
+    if x.size != y.size or y.size != z.size:
+        raise ValueError("The sizes of the three arrays must be equal!")
+    x_arr, y_arr, z_arr = x.reshape(-1), y.reshape(-1), z.reshape(-1)
+    good = ~np.isnan(x_arr) & ~np.isnan(y_arr) & ~np.isnan(z_arr)
+    x_arr, y_arr, z_arr = x_arr[good], y_arr[good], z_arr[good]
+    r_arr = np.sqrt(x_arr ** 2 + y_arr ** 2)
+    bin_r, bin_z = _bin_array(r_arr, z_arr, bins=bins)
+    return _step(r_arr, z_arr, bin_r, bin_z)
+
+
+def corr_func(x, y, z, rad_bin, azi_bin=None, report=False):
     """
     Compute the two-point correlation function of a deprojected galaxy.
     Parameters:
-        x, y, and met: 1D or 2D array
-            x and y are the coordinates and met is the metallicities.
-            Their sizes must be the same.
+        x, y, and z: 1D or 2D array
+            x and y are the coordinates and z is generally the metallicity fluctuations.
+            Their sizes must be identical.
 
-        bin_size: float (in unit of kpc)
-            It could be as small as the physical spatial resolution.
+        rad_bin: list
+            The bins for separations, in the same unit as x_arr.
+            Should be as [min separation, max separation, radial bin width]
 
-        max_sep: float (in unit of kpc)
-            It is a maximum separation. It is for the sake of saving time
-            since a two-point correlation is very close to zero and
-            has no information at very large separation.
+        azi_bin: 3-element list or float, in the unit of degree.
+            The bins for azimuthal expansion.
+            Defaulted to be None.
+            Following astronomical convention, PA = 0 mean the north
+                (aligned to the y axis).
+            Should be as [min pitch angle, max pitch angle, azimuthal bin width]
+            If float, indicate the bin width only, as [0, 180, azimuthal bin width]
 
         report: bool, optional
-            If True, then print the procedures and
-            how long the two-point correlation function takes.
-        
-        adp: bool, optional
-            If True, then removing the radial metallicity gradient will be
-            processed in adaptive bins.
+            If True, then print the procedures.
     
     returns:
-        sep and ksi: 1D array
-        sep is the separation distance, simply an array as
-            [0, 1*bin_size, 2*bin_size, ...].
-        ksi is the two-point correlation, as
-            [1, 0.X, 0.Y, ...].
+        If azi_bin is None, return a 1D array, having the same shape as
+            np.arange(min separation, max separation, radial bin width)
+        Else return a 2D array, having the shape of 
+            np.arange(min separation, max separation, radial bin width) and
+            np.arange(min pitch angle, max pitch angle, azimuthal bin width)
     """
-    if x_arr.size != y_arr.size or y_arr.size != met_arr.size:
+    if x.size != y.size or y.size != z.size:
         raise ValueError("The sizes of the three arrays must be equal!")
-    x, y, met = x_arr.reshape(-1), y_arr.reshape(-1), met_arr.reshape(-1)
-    good = ~np.isnan(x) & ~np.isnan(y) & ~np.isnan(met)
-    x, y, met = x[good], y[good], met[good]
-    rad = np.sqrt(x ** 2 + y ** 2)
-    bin_rad, bin_met = _bin_array(rad, met, bin_size=bin_size, adp=adp)
-    met_fluc = _step(rad, met, bin_rad, bin_met)
-    sep, ksi = _tpcf(met_fluc, x, y,
-                     report=report, bin_size=bin_size, max_sep=max_sep)
-    return sep[sep < max_sep], ksi[sep < max_sep]
+    x_arr, y_arr, z_arr = x.reshape(-1), y.reshape(-1), z.reshape(-1)
+    good = ~np.isnan(x_arr) & ~np.isnan(y_arr) & ~np.isnan(z_arr)
+    x_arr, y_arr, z_arr = x_arr[good], y_arr[good], z_arr[good]
+    azi_bins = [0., 180., 180. / azi_bin] if type(azi_bin) == int else azi_bin
+    return _tpcf(z_arr, x_arr, y_arr, rad_bin=rad_bin, azi_bin=azi_bins, report=report)
+
+
+
+
+
 
 
