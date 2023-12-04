@@ -63,7 +63,7 @@ Note that corr_func() is designed for read-world scales. Thus, the parameters x 
             The bins for separations, in the same unit as x_arr.
             Should be as [min separation, max separation, radial bin width]
 
-        azi_bin: 3-element list or float, in the unit of degree.
+        azi_bin: 3-element list or int, in the unit of degree.
             The bins for azimuthal expansion.
             Defaulted to be None.
             Following astronomical convention, PA = 0 mean the north
