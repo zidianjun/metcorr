@@ -187,7 +187,7 @@ def corr_func(x, y, z, rad_bin, azi_bin=None, report=False):
             The bins for separations, in the same unit as x_arr.
             Should be as [min separation, max separation, radial bin width]
 
-        azi_bin: 3-element list or float, in the unit of degree.
+        azi_bin: 3-element list or int, in the unit of degree.
             The bins for azimuthal expansion.
             Defaulted to be None.
             Following astronomical convention, PA = 0 mean the north
