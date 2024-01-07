@@ -23,8 +23,9 @@ Note that corr_func() is designed for read-world scales. Thus, the parameters x 
             The coordinates of the galaxy center, shaped as (center_x, center_y)
 
         PA: float (in unit of degree)
-            The position angle. PA = 0 means that the semi long axis is
-                aligned to the north.
+            The position angle.
+            Following astronomical convention, PA = 0 means the semi long axis is
+                aligned to the north (y axis).
 
         q0: float
             A factor related with the intrinsic galaxy disk thickness.
