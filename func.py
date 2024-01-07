@@ -126,8 +126,9 @@ def deproject(shape, cen_coord, PA, incl, q0=0.):
             The coordinates of the galaxy center, shaped as (center_x, center_y)
 
         PA: float (in unit of degree)
-            The position angle. PA = 0 means that the semi long axis is
-                aligned to the north.
+            The position angle.
+            Following astronomical convention, PA = 0 means the semi long axis is
+                aligned to the north (y axis).
 
         q0: float
             A factor related with the intrinsic galaxy disk thickness.
@@ -139,15 +140,16 @@ def deproject(shape, cen_coord, PA, incl, q0=0.):
     height, width = shape
     cx, cy = cen_coord
     cosi = _incl_to_cosi(incl, q0=q0)
-    theta = (PA + 90) * np.pi / 180  # Aligned to x axis
-    dep_mat = np.array([[np.cos(theta), np.sin(theta)],
-                        [-np.sin(theta) / cosi, np.cos(theta) / cosi]])
+    theta = PA * np.pi / 180  # Aligned to y axis
+    dep_mat = np.array([[np.cos(theta) / cosi, np.sin(theta) / cosi],
+                        [-np.sin(theta), np.cos(theta)]])
    
     x0, y0 = np.meshgrid(range(width), range(height))
     x0, y0 = x0.reshape(-1), y0.reshape(-1)
     xy_mat = np.stack([x0 - cx, y0 - cy], axis=0)
     X, Y = np.dot(dep_mat, xy_mat)
     return X, Y
+
 
 
 def fluc_map(x, y, z, bins):
@@ -189,8 +191,8 @@ def corr_func(x, y, z, rad_bin, azi_bin=None, report=False):
         azi_bin: 3-element list or int, in the unit of degree.
             The bins for azimuthal expansion.
             Defaulted to be None.
-            Following astronomical convention, PA = 0 means aligned to the x axis 
-                (the same as mathematical convention).
+            Following astronomical convention, PA = 0 means the north
+                (aligned to the y axis).
             Should be as [min pitch angle, max pitch angle, azimuthal bin width]
             If float, indicate the bin width only, as [0, 180, azimuthal bin width]
 
