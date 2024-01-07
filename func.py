@@ -4,7 +4,6 @@ import numpy as np
 from scipy.stats import binned_statistic
 import os
 import platform
-import matplotlib.pyplot as plt
 
 suffix = 'linux' if platform.platform().split('-')[0] == 'Linux' else 'macos'
 abs_path = os.path.dirname(os.path.abspath(__file__))
@@ -190,8 +189,8 @@ def corr_func(x, y, z, rad_bin, azi_bin=None, report=False):
         azi_bin: 3-element list or int, in the unit of degree.
             The bins for azimuthal expansion.
             Defaulted to be None.
-            Following astronomical convention, PA = 0 mean the north
-                (aligned to the y axis).
+            Following astronomical convention, PA = 0 means aligned to the x axis 
+                (the same as mathematical convention).
             Should be as [min pitch angle, max pitch angle, azimuthal bin width]
             If float, indicate the bin width only, as [0, 180, azimuthal bin width]
 
@@ -212,9 +211,6 @@ def corr_func(x, y, z, rad_bin, azi_bin=None, report=False):
     x_arr, y_arr, z_arr = x_arr[good], y_arr[good], z_arr[good]
     azi_bins = [0., 180., 180. / azi_bin] if type(azi_bin) == int else azi_bin
     return _tpcf(z_arr, x_arr, y_arr, rad_bin=rad_bin, azi_bin=azi_bins, report=report)
-
-
-
 
 
 
