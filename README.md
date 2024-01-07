@@ -66,8 +66,8 @@ Note that corr_func() is designed for read-world scales. Thus, the parameters x 
         azi_bin: 3-element list or int, in the unit of degree.
             The bins for azimuthal expansion.
             Defaulted to be None.
-            Following astronomical convention, PA = 0 mean the north
-                (aligned to the y axis).
+            Following astronomical convention, PA = 0 means aligned to the x axis 
+                (the same as mathematical convention).
             Should be as [min pitch angle, max pitch angle, azimuthal bin width]
             If float, indicate the bin width only, as [0, 180, azimuthal bin width]
 
